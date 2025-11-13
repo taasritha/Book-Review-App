@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AR Book Review App</title>
+<style>
+  :root {
+    --card-bg: rgba(31,41,55,0.85);
+    --accent: #3b82f6;
+  }
+  html,body{
+    height:100%;
+    margin:0;
+    background:#0b0f18;
+    font-family:Inter,Segoe UI,Arial;
+    color:#e5e7eb;
+  }
+  header{
+    background:#111827;
+    padding:10px;
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+  header h1{font-size:16px;margin:0;}
+  #videoWrap{
+    position:relative;
+    flex:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    height:calc(100vh - 60px);
+  }
+  video#cam{width:100%;height:100%;object-fit:cover;background:#000;}
+  canvas#debug{
+    position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;
+  }
+
+  /* Individual card styling */
+  .card-section{
+    background:var(--card-bg);
+    border-radius:18px;
+    padding:16px 20px;
+    border:1px solid rgba(255,255,255,0.08);
+    box-shadow:0 8px 30px rgba(0,0,0,0.4);
+    backdrop-filter:blur(10px);
+  }
+  #infoPanel{
+    position:absolute;
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+    width:400px;
+    max-width:70vw;
+    color:#f3f4f6;
+  }
+
+  .book-top{
+    display:flex;
+    gap:14px;
+    align-items:flex-start;
+  }
+  .book-cover{
+    width:90px;
+    height:130px;
+    border-radius:10px;
+    object-fit:cover;
+    background:#1f2937;
+    border:1px solid rgba(255,255,255,0.1);
+  }
+  .book-info{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+  .book-info span.label{
+    color:#9ca3af;
+    font-size:13px;
+    margin-right:4px;
+  }
+  .meta-line{
+    font-size:14px;
+  }
+
+  .section-title{
+    font-weight:700;
+    margin-bottom:6px;
+    font-size:14px;
+    color:#f9fafb;
+  }
+
+  .reviews-list{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    margin-top:6px;
+  }
+  .review-item{
+    background:#111827;
+    border:1px solid rgba(255,255,255,0.05);
+    border-radius:8px;
+    padding:8px;
+  }
+
+  select,textarea{
+    background:rgba(17,24,39,0.9);
+    border:1px solid rgba(255,255,255,0.15);
+    border-radius:10px;
+    color:#e5e7eb;
+    padding:8px;
+    width:100%;
+    font-family:inherit;
+  }
+  select:hover,textarea:hover{
+    border-color:var(--accent);
+  }
+  select:focus,textarea:focus{
+    outline:none;
+    border-color:var(--accent);
+    box-shadow:0 0 0 2px rgba(59,130,246,0.3);
+  }
+
+  .btn{
+    background:var(--accent);
+    color:white;
+    padding:8px 12px;
+    border:none;
+    border-radius:10px;
+    cursor:pointer;
+    transition:background .2s;
+  }
+  .btn:hover{background:#2563eb;}
+  .btn.secondary{
+    background:#374151;
+  }
+  .btn.secondary:hover{
+    background:#4b5563;
+  }
+
+  .error{
+    color:#f87171;
+    background:rgba(220,38,38,0.15);
+    padding:8px;
+    border-radius:6px;
+  }
+
+  
+  #scannerStatus{font-size:13px;color:#a3aab3;margin-left:8px;}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>AR Book Review App</h1>
+    <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+      <button id="ttsBtn" class="btn">🔊 Read Summary</button>
+      <button id="rescanBtn" class="btn secondary">Scan Again</button>
+      <!-- <button id="clearReviews" class="btn secondary">Clear Local Reviews</button> -->
+      <div id="scannerStatus">Auto-scan: ON</div>
+    </div>
+  </header>
+
+  <div id="videoWrap">
+    <video id="cam" autoplay muted playsinline></video>
+    <canvas id="debug"></canvas>
+
+    <!-- Info Cards -->
+    <div id="infoPanel" style="display:none;">
+      <div id="errorMessage" class="error" style="display:none"></div>
+
+      <!-- Card 1 -->
+      <div class="card-section">
+        <div class="book-top">
+          <img id="bookCover" class="book-cover" src="" alt="Cover">
+          <div class="book-info">
+            <div class="meta-line"><span class="label">Title:</span><span id="bookTitle">Scanning...</span></div>
+            <div class="meta-line"><span class="label">Author:</span><span id="bookAuthor"></span></div>
+            <div class="meta-line"><span class="label">Genre:</span><span id="bookGenre"></span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 2 -->
+      <div class="card-section">
+        <div class="section-title">Book Overview:</div>
+        <div id="bookDesc" style="font-size:14px;line-height:1.4;"></div>
+      </div>
+
+      <!-- Card 3 -->
+      <div class="card-section">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div class="section-title">Local reviews</div>
+          <div id="avgLabel" style="font-size:13px;color:#9ca3af">—</div>
+        </div>
+        <div class="reviews-list" id="reviewsList"></div>
+        <div style="margin-top:8px;">
+          <label style="font-size:13px;font-weight:600;">Your rating</label>
+          <select id="userRating">
+            <option>5</option><option>4</option><option>3</option><option>2</option><option>1</option>
+          </select>
+        </div>
+        <div style="margin-top:8px;">
+          <label style="font-size:13px;font-weight:600;">Your review</label>
+          <textarea id="userReview" rows="3" placeholder="Write a short review..."></textarea>
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:8px;">
+          <button id="saveReview" class="btn">Save Review</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="searchFallback" style="display:none;position:absolute;bottom:24px;left:50%;transform:translateX(-50%);">
+      <input id="manualQuery" placeholder="No barcode found — type title/author" />
+      <button id="doManual" class="btn">Search</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/quagga/dist/quagga.min.js"></script>
+<script async src="https://docs.opencv.org/4.x/opencv.js" onload="onOpenCVLoaded()"></script>
+
+<script>
+const video=document.getElementById('cam');
+const canvas=document.getElementById('debug');
+const ctx=canvas.getContext('2d');
+const infoPanel=document.getElementById('infoPanel');
+const errorMessage=document.getElementById('errorMessage');
+const bookTitle=document.getElementById('bookTitle');
+const bookAuthor=document.getElementById('bookAuthor');
+const bookGenre=document.getElementById('bookGenre');
+const bookDesc=document.getElementById('bookDesc');
+const bookCover=document.getElementById('bookCover');
+const manualQuery=document.getElementById('manualQuery');
+const doManual=document.getElementById('doManual');
+const ttsBtn=document.getElementById('ttsBtn');
+const saveReview=document.getElementById('saveReview');
+// const clearReviews=document.getElementById('clearReviews');
+const reviewsList=document.getElementById('reviewsList');
+const avgLabel=document.getElementById('avgLabel');
+const rescanBtn=document.getElementById('rescanBtn');
+const scannerStatus=document.getElementById('scannerStatus');
+
+let vw=640,vh=480;
+let opencvLoaded=false,quaggaStarted=false,detectedOnce=false,lastISBN=null;
+
+function showError(msg){
+  errorMessage.textContent=msg;
+  errorMessage.style.display='block';
+  setTimeout(()=>errorMessage.style.display='none',5000);
+}
+function onOpenCVLoaded(){opencvLoaded=true;}
+async function startCamera(){
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+    video.srcObject=stream;
+    await new Promise(r=>video.onloadedmetadata=r);
+    await video.play();
+    vw=video.videoWidth;vh=video.videoHeight;
+    canvas.width=vw;canvas.height=vh;
+    requestAnimationFrame(processFrame);
+    startScannerQuagga();
+  }catch(e){showError('Camera error: '+e.message);}
+}
+function startScannerQuagga(){
+  if(quaggaStarted){try{Quagga.start();}catch(e){}return;}
+  detectedOnce=false;lastISBN=null;
+  Quagga.init({
+    inputStream:{name:"Live",type:"LiveStream",target:document.querySelector('#cam'),constraints:{facingMode:"environment"}},
+    decoder:{readers:["ean_reader","ean_8_reader","upc_reader","code_128_reader"]},
+    locate:true
+  },err=>{
+    if(err){showError('Barcode scanner init failed');return;}
+    Quagga.start();quaggaStarted=true;
+    scannerStatus.textContent='Auto-scan: ON';
+  });
+  Quagga.onDetected(handleQuaggaDetect);
+}
+function handleQuaggaDetect(result){
+  if(detectedOnce)return;
+  const code=result?.codeResult?.code;
+  if(!code)return;
+  detectedOnce=true;
+  try{Quagga.stop();}catch(e){}
+  scannerStatus.textContent='Detected ISBN: '+code;
+  fetchBookByISBN(code);
+}
+function stopScannerQuagga(){
+  try{Quagga.stop();}catch(e){}
+  quaggaStarted=false;
+  scannerStatus.textContent='Auto-scan: OFF';
+}
+function processFrame(){
+  if(video.readyState>=2){ctx.clearRect(0,0,vw,vh);ctx.drawImage(video,0,0,vw,vh);}
+  requestAnimationFrame(processFrame);
+}
+
+async function fetchBookByISBN(isbn){
+  try{
+    const res=await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
+    const data=await res.json();
+    if(data.totalItems>0)populateBook(data.items[0]);
+    else showError('No book found');
+  }catch(e){showError('Failed to fetch book');}
+}
+function populateBook(item){
+  const info=item.volumeInfo||{};
+  const id=item.id||Date.now();
+  bookTitle.textContent=info.title||'Unknown title';
+  bookAuthor.textContent=(info.authors||[]).join(', ')||'Unknown author';
+  bookGenre.textContent=(info.categories||[]).join(', ')||'Unknown genre';
+  bookDesc.textContent=(info.description||'No description available.');
+  const thumb=info.imageLinks?.thumbnail||info.imageLinks?.smallThumbnail||'';
+  bookCover.src=thumb||'https://via.placeholder.com/90x130?text=No+Cover';
+  infoPanel.style.display='flex';
+  infoPanel.dataset.bookid=id;
+  renderReviewsFor(id);
+}
+
+/* ---- Reviews ---- */
+function getAllReviews(){return JSON.parse(localStorage.getItem('ar_book_reviews')||'{}');}
+function saveReviewFor(id,r){const all=getAllReviews();all[id]=all[id]||[];all[id].push(r);localStorage.setItem('ar_book_reviews',JSON.stringify(all));}
+function renderReviewsFor(id){
+  reviewsList.innerHTML='';
+  const arr=getAllReviews()[id]||[];
+  if(!arr.length){reviewsList.innerHTML='<div style="color:#64748b;font-size:13px">No local reviews yet — be the first!</div>';avgLabel.textContent='—';return;}
+  let sum=0;
+  arr.slice().reverse().forEach(a=>{
+    sum+=+a.rating;
+    const d=document.createElement('div');
+    d.className='review-item';
+    d.innerHTML=`<div>${'★'.repeat(a.rating)}${'☆'.repeat(5-a.rating)}</div>
+      <div style="font-size:13px;">${a.text}</div>
+      <div style="font-size:11px;color:#6b7280;margin-top:4px;">${new Date(a.when).toLocaleString()}</div>`;
+    reviewsList.appendChild(d);
+  });
+  avgLabel.textContent=(sum/arr.length).toFixed(1)+' / 5';
+}
+
+saveReview.addEventListener('click',()=>{
+  const id=infoPanel.dataset.bookid;
+  const rating=+document.getElementById('userRating').value;
+  const text=document.getElementById('userReview').value.trim();
+  if(!text)return showError('Please write a short review');
+  saveReviewFor(id,{rating,text,when:Date.now()});
+  document.getElementById('userReview').value='';
+  renderReviewsFor(id);
+  alert('Review saved locally');
+});
+// clearReviews.addEventListener('click',()=>{
+//   if(confirm('Clear all local reviews?')){localStorage.removeItem('ar_book_reviews');renderReviewsFor(infoPanel.dataset.bookid);}
+// });
+rescanBtn.addEventListener('click',()=>{
+  infoPanel.style.display='none';
+  stopScannerQuagga();
+  setTimeout(()=>startScannerQuagga(),300);
+});
+ttsBtn.addEventListener('click',()=>{
+  const text=bookDesc.textContent||bookTitle.textContent;
+  const ut=new SpeechSynthesisUtterance(text);
+  ut.rate=0.95;speechSynthesis.cancel();speechSynthesis.speak(ut);
+});
+startCamera();
+</script>
+</body>
+</html>
