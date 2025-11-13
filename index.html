@@ -47,13 +47,15 @@
     backdrop-filter:blur(10px);
   }
   #infoPanel{
-    position:absolute;
-    display:flex;
-    flex-direction:column;
-    gap:16px;
-    width:400px;
-    max-width:70vw;
-    color:#f3f4f6;
+    position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 400px;
+  max-width: 70vw;
+  color: #f3f4f6;
+  top: 70px; /* pushes the cards below the navbar */
+  left: 20px;
   }
 
   .book-top{
@@ -145,7 +147,15 @@
     border-radius:6px;
   }
 
-  
+  @media (max-width: 600px) {
+  #infoPanel {
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: 90vw;
+  }
+}
+
   #scannerStatus{font-size:13px;color:#a3aab3;margin-left:8px;}
 </style>
 </head>
